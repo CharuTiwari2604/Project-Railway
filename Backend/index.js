@@ -3,8 +3,6 @@ const express = require("express");
 const cors= require('cors');
 const { default: mongoose } = require('mongoose');
 const trainRouter = require('./routes/trainroute');
-const trainmodel = require('./models/trainmodel');
-const { autoSyncAllTrains } = require('./services/syncServices');
 const app= express();
 const PORT= process.env.PORT || 5000;
 

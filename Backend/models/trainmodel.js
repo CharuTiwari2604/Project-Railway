@@ -14,21 +14,23 @@ const TrainSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
-    currentSpeed:{
-        type: Number,
-        default:0
-    },
-    distanceToNextStation:{
-        type: Number,
-        default:0
-    },
+    route:[{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Station'
+    }],
     currentKM: {
         type: Number,
         default: 0
     },
-    lastUpdated:{
-        type: Date,
-        default:Date.now
+    currentStationCode: String,
+    lastSyncDelay: {type: Number, default: Date.now()},
+    currentSpeed:{
+        type: Number,
+        default:0
+    },
+    currentStationIndex: {
+        type: Number,
+        default:0
     },
     currentStation: {
         type: mongoose.Schema.Types.ObjectId,
@@ -38,34 +40,17 @@ const TrainSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Station'
     },
-    route:[{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Station'
-    }],
-    visibility: {
-        type: Number,
-        default: 100
-    },
-    currentStationIndex: {
-        type: Number,
-        default:0
-    },
-    eta:{
-        type: Number,
-        default: 0,
-        min: -1
-    },
-    distanceToNext:{
-        type:Number,
-        default: 0
-    },
     totalDelay:{
         type: Number,
         default: 0
     },
-    dwellTime:{
+    visibility: {
         type: Number,
-        default: 0
+        default: 100
+    },
+    lastUpdatedAt:{
+        type: Date,
+        default:Date.now
     },
     statusReason: {
         code: {type: String, default: "INITIAL"},
