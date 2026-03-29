@@ -1,64 +1,94 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import axios from 'axios';
+import {  Train, Calendar } from 'lucide-react';
+import { useNavigate } from "react-router-dom";
 
-const Home=()=>{
+const Home = () => {
 
-  const [trainNumber, setTrainNumber]= useState('')
-  const [data, setData]= useState(null)
-  const [loading, setLoading] = useState(false)
-  const navigate=useNavigate();
+  const [trainNumber, setTrainNumber] = useState('');
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [date, setDate] = useState('0');
 
-  const handleSearch = async()=>{
-    setLoading(true);
-    try{
-      const response = await axios.get(`http://localhost:5000/api/status/${trainNumber}`)
-      setData(response.data)
-    }catch(err){
-      alert("Train not found or Server Down")
+
+  const navigate = useNavigate();
+
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    if (!trainNumber || !date ) {
+      alert("Please Select both Train Number and Day!")
+      return;
     }
-    setLoading(false)
+    setLoading(true);
+    try {
+      const res = await axios.get(`http://localhost:5000/api/status/${trainNumber}?start_day=${date}`);
+      setData(res.data);
+      navigate('/mapview', { state: { trainInfo: res.data } });
+    } catch (err) {
+      alert("Train not found or Server down.")
+    }
+    setLoading(false);
   }
 
-  const handleClick =()=>{
-    navigate(`/global-dashboard`)
-}
 
-    return (
-    <div className="min-h-screen bg-black text-white p-10 font-sans">
-      <h1 className="text-4xl font-bold text-cyan-400 mb-8 shadow-neon">
-      Train Intelligence System
-      </h1>
-      <div className="flex gap-4 mb-10">
-        <input 
-          type="text" 
-          placeholder="Enter Train Number (e.g., 12810)"
-          className="bg-gray-900 border border-cyan-500 p-3 rounded-lg w-64 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-          value={trainNumber}
-          onChange={(e) => setTrainNumber(e.target.value)}
-        />
-        <button 
-          onClick={handleSearch}
-          className="bg-cyan-600 hover:bg-cyan-400 text-black font-bold py-3 px-6 rounded-lg transition-all"
-        >
-          {loading ? "Analyzing..." : "Trace Train"}
-        </button>
-      </div>
-      {/* The Result Card */}
-      {data && (
-        <div className="border-l-4 border-cyan-500 bg-gray-900 p-6 rounded-r-xl animate-pulse">
-          <h2 className="text-2xl text-cyan-300 mb-2">{data.name}</h2>
-          <p className="text-gray-400 mb-4">Current Speed: {data.currentSpeed} km/h</p>
-          <div className="bg-black p-4 rounded-lg border border-gray-700">
-            <span className="text-yellow-400 font-bold uppercase tracking-widest text-sm">Reasoning:</span>
-            <p className="text-xl mt-2">{data.statusReason.message}</p>
+  return (
+    <div className="min-h-screen bg-[#0D0D0D] text-white font-sans p-6 pb-24">
+      <form onSubmit={handleSearch}>
+        <div className="flex justify-between items-center mb-8 pt-4">
+          <div>
+            <p className="text-gray-400 text-lg mt-4 mb-2">Let's find out</p>
+            <h1 className="text-3xl font-bold">RukiKyun? Express</h1>
           </div>
-          <button className="text-white bg-blue-900 rounded-sm mt-5 p-2" onClick={handleClick}>Enter Command Center</button>
-       </div>
-      )}
-       
-</div>
-)
+        </div>
+
+        <div className="bg-[#1A1A1A] p-1 rounded-2xl mt-12 flex mb-8">
+          <button className="flex-1 bg-yellow-400 text-black py-3 rounded-xl font-bold text-m">Live Status</button>
+          <button className="flex-1 py-3 text-gray-500 font-bold text-m" onClick={() => navigate('/mapview')}>Map View</button>
+          <button className="flex-1 py-3 text-gray-400 font-bold text-m" onClick={() => navigate('/history')}>History</button>
+        </div>
+
+        <div className="bg-[#141414] border border-white/5 p-6 rounded-4xl mt-16 mb-8 shadow-2xl">
+          <div className="space-y-7 relative">
+            <div className="flex items-center gap-4">
+              <div className="bg-yellow-400/10 p-3 rounded-xl">
+                <Train className="text-yellow-400" size={24} />
+              </div>
+              <div className="flex-1">
+                <label className="text-[13px] text-gray-500 tracking-widest font-bold">TRAIN NUMBER</label>
+                <input type="text" placeholder="e.g. 22356" value={trainNumber} onChange={(e) => setTrainNumber(e.target.value)} required className="w-full bg-transparent text-xl font-bold focus:outline-none placeholder:text-gray-700" />
+              </div>
+            </div>
+
+            <div className="h-[2px] bg-white/5 ml-14"></div>
+
+            <div className="flex items-center gap-4">
+              <div className="bg-yellow-400/10 p-3 rounded-xl">
+                <Calendar className="text-yellow-400" size={24} />
+              </div>
+              <div className="flex-1">
+                <label className="text-[10px] text-gray-500 tracking-widest font-bold block mb-1">
+                  START DAY
+                </label>
+                <select className="w-full text-lg font-bold text-white focus:outline-none cursor-pointer appearance-none pl-4 ml-[-1rem]" id="date" value={date} onChange={(e) => setDate(e.target.value)} required >
+                  <option value="" disabled className="bg-[#141414]">Select Starting Day</option>
+                  <option value="0" className="bg-[#141414]">Day 0 (Started Today)</option>
+                  <option value="1" className="bg-[#141414]">Day 1 (Started Yesterday)</option>
+                  <option value="2" className="bg-[#141414]">Day 2 (2 Days Ago)</option>
+                  <option value="3" className="bg-[#141414]">Day 3 (3 Days Ago)</option>
+                  <option value="4" className="bg-[#141414]">Day 4 (4 Days Ago)</option>
+                  <option value="5" className="bg-[#141414]">Day 5 (5 Days Ago)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button className="w-full bg-yellow-400 text-black py-5 mt-6 rounded-2xl font-black text-xl">
+          {loading ? 'Searching...' : 'Track Khabri'}
+        </button>
+      </form>
+    </div >
+  )
 }
 
 export default Home;
