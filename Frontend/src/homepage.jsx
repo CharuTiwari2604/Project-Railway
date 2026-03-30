@@ -21,9 +21,13 @@ const Home = () => {
     }
     setLoading(true);
     try {
+      const syncRes = await axios.get(`http://localhost:5000/api/live/${trainNumber}`);
+      if(syncRes.status === 200){
       const res = await axios.get(`http://localhost:5000/api/status/${trainNumber}?start_day=${date}`);
+      console.log("Backend Sent This:", res.data.finalReason.message);
       setData(res.data);
       navigate('/mapview', { state: { trainInfo: res.data } });
+      }
     } catch (err) {
       alert("Train not found or Server down.")
     }
@@ -59,7 +63,7 @@ const Home = () => {
               </div>
             </div>
 
-            <div className="h-[2px] bg-white/5 ml-14"></div>
+            <div className="h-0.5 bg-white/5 ml-14"></div>
 
             <div className="flex items-center gap-4">
               <div className="bg-yellow-400/10 p-3 rounded-xl">
@@ -69,7 +73,7 @@ const Home = () => {
                 <label className="text-[10px] text-gray-500 tracking-widest font-bold block mb-1">
                   START DAY
                 </label>
-                <select className="w-full text-lg font-bold text-white focus:outline-none cursor-pointer appearance-none pl-4 ml-[-1rem]" id="date" value={date} onChange={(e) => setDate(e.target.value)} required >
+                <select className="w-full text-lg font-bold text-white focus:outline-none cursor-pointer appearance-none pl-4 -ml-4" id="date" value={date} onChange={(e) => setDate(e.target.value)} required >
                   <option value="" disabled className="bg-[#141414]">Select Starting Day</option>
                   <option value="0" className="bg-[#141414]">Day 0 (Started Today)</option>
                   <option value="1" className="bg-[#141414]">Day 1 (Started Yesterday)</option>

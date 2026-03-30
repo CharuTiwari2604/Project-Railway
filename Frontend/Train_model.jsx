@@ -12,7 +12,7 @@ export function Train(color="white", ...props) {
       <mesh geometry={nodes.Object_8.geometry} material={materials.TrainUnderside} material-color="#242323" position={[0, 0.277, 0.639]} scale={[1.325, 1.235, 1.235]} />
       <mesh geometry={nodes.Object_9.geometry} material={materials.TrainTopSide} material-color={color} position={[0, 0.277, 0.639]} scale={[1.325, 1.235, 1.235]} />
       <mesh geometry={nodes.Object_10.geometry} material={materials.TrainVents} material-color="#333333" position={[0, 0.277, 0.639]} scale={[1.325, 1.235, 1.235]} />
-      <mesh geometry={nodes.Object_19.geometry} material={materials.tracks} material-color="#444444" position={[0, -1.237, -7.474]} rotation={[-Math.PI, 0, -Math.PI]} scale={[0.579, 0.877, 0.542]} />
+      <mesh geometry={nodes.Object_19.geometry} material={materials.tracks} material-color="#1a1a1a" position={[0, -1.237, -7.474]} rotation={[-Math.PI, 0, -Math.PI]} scale={[0.579, 0.877, 0.542]} />
     </group>
   )
 }

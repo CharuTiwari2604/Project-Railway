@@ -1,6 +1,6 @@
 import React, { Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, PerspectiveCamera, Environment} from '@react-three/drei';
+import { OrbitControls, Environment } from '@react-three/drei';
 import { ArrowLeft, MapPin, Zap, AlertTriangle } from 'lucide-react';
 import OverTake from './overtake';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -12,10 +12,9 @@ const StatusDashboard = () => {
     const location = useLocation();
     const data = location.state?.trainInfo;
 
+    const displayMessage = data?.finalReason?.message || "Running on Schedule";
     const isOvertaking = data?.finalReason?.code === 'OVERTAKE';
-    const isStationFull = data?.finalReason?.code === 'STATION_CROWDED';
-    const nextStation = data?.currentStationCode || "JOURNEY ENDED";
-    const distanceRemaining = data?.distToNext ? Math.round(data.distToNext) : 0;
+
 
     return (
         <div className="h-screen bg-[#0D0D0D] flex flex-col font-sans">
@@ -23,19 +22,17 @@ const StatusDashboard = () => {
                 <ArrowLeft size={20} className="text-yellow-400" />
             </button>
             <div className="h-1/2 relative border-b border-white/5">
-                <Canvas shadows>
-                    <PerspectiveCamera makeDefault position={[18, 10, 18]} fov={40} />
-                    <ambientLight intensity={2} />
-                    <directionalLight position={[10, 20, 10]} intensity={3} castShadow />
-                    <pointLight position={[-10, 5, -10]} intensity={1.5} color="#ffcc00" />
-                    <hemisphereLight intensity={1} color="#ffffff" groundColor="#444444" />
+                <Canvas shadows camera={{ position: [20, 10, 20], fov: 35 }}>
+                    <ambientLight intensity={3} />
+                    <directionalLight position={[10, 20, 10]} intensity={4} castShadow />
+                    <pointLight position={[-20, 10, -20]} intensity={2} color="#ffffff" />
                     <Environment preset='apartment' />
                     <Suspense fallback={null}>
                         <group position={[0, -1, 0]} >
-                            <OverTake isOvertaking={isOvertaking} isStationFull={isStationFull} trainName={data?.name} />
+                            <OverTake isOvertaking={isOvertaking} trainName={data?.name} />
                         </group>
                     </Suspense>
-                    <OrbitControls enableZoom={false} maxPolarAngle={Math.PI / 2} target={[0, 0, 0]} />
+                    <OrbitControls enableZoom={false} enableRotate={false} enablePan={false} target={[0, 0, 0]} />
                 </Canvas>
                 <div className="absolute top-[-2.2rem] left-25 flex gap-2">
                     <div className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-tighter flex items-center gap-2 shadow-xl ${isOvertaking ? 'bg-red-600 text-white animate-pulse' : 'bg-yellow-400 text-black'}`}>
@@ -63,7 +60,7 @@ const StatusDashboard = () => {
                         <div>
                             <p className="text-[9px] text-gray-600 uppercase font-black tracking-widest mb-1">Live Khabri Report</p>
                             <h3 className="text-lg font-bold text-yellow-500/90 italic">
-                                "{data?.finalReason?.message?.replace('undefined', data.currentStationCode || 'Destination')}"
+                                "{displayMessage}"
                             </h3>
                         </div>
                     </div>
@@ -86,22 +83,20 @@ const StatusDashboard = () => {
                                     <span className="animate-ping absolute -mt-4 inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                                     <span className="relative inline-flex -mt-4 rounded-full h-3 w-3 bg-green-500"></span>
                                 </div>
-
-                                <p className="text-xl -mt-8 font-black text-white tracking-tighter"> {nextStation}</p>
+                                <p className="text-xl -mt-8 font-black text-white tracking-tighter">{data?.nextStationName}</p>
                             </div>
                             <div className=" relative mt-10 min-w-40 -ml-23">
                                 <span className="text-[10px] text-gray-500 font-bold mb-0.5">DISTANCE =</span>
                                 <span className="text-sm font-black text-yellow-400">
-                                    {distanceRemaining} <span className="text-[10px] text-gray-500">KM</span>
+                                    {data?.distToNext} <span className="text-[10px] text-gray-500">KM</span>
                                 </span>
                             </div>
-
                         </div>
                     </div>
                 </div>
-                </div>
             </div>
-            )
+        </div>
+    )
 }
 
- export default StatusDashboard;
+export default StatusDashboard;

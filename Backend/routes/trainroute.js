@@ -1,9 +1,7 @@
 const express = require('express');
 const Train = require('../models/trainmodel')
 const { getTrainStatus, getAllTrains, syncWithApi } = require('../controller/trainController');
-// const { getTrainStatus, getAllTrains, moveTrain, triggerObstacle, resetFleet, restartJourney, syncLiveLocation, syncWithApi } = require('../controller/trainController');
 const { importTrainSchedule } = require('../controller/staticDataApi');
-// const { getLiveUpdate } = require('../controller/liveStatus');
 const trainRouter = express.Router();
 
 trainRouter.get('/all', getAllTrains)
@@ -44,5 +42,13 @@ trainRouter.get('/import/:trainNumber', async(req, res)=>{
     }
 })
 
+trainRouter.get('/history', async(req, res)=>{
+    try{
+        const history =await Train.find().sort({updatedAt: -1}).limit(10);
+        res.status(200).json(history)
+    } catch(err){
+        res.status(500).json({message: "History fetch failed"})
+    }
+})
 
 module.exports= trainRouter;
