@@ -3,9 +3,10 @@ const Schedule = require('../models/schedulemodel');
 
 exports.importTrainSchedule = async (trainNumber) => {
     try {
-        const OfficialStations = {
+        const formattedTrain = trainNumber.toString().trim();
+        const OfficialStations = {                    //getTrainStops
             method: 'GET',
-            url: `https://rail-info-api-india1.p.rapidapi.com/v1/trains/${trainNumber}/stops`,
+            url: `https://rail-info-api-india1.p.rapidapi.com/v1/trains/${formattedTrain}/stops`,
             headers: {
                 'X-RapidAPI-Key': process.env.RAPID_API_KEY,
                 'X-RapidAPI-Host': 'rail-info-api-india1.p.rapidapi.com'
@@ -20,7 +21,7 @@ exports.importTrainSchedule = async (trainNumber) => {
 
         const cleanedStations = finalArray.map((item) => ({
             stationCode: item.station_code,
-            stationName: item.station_code,
+            stationName: item.station_name,
             arrivalTime: item.arrival_time,
             departureTime: item.departure_time,
             distance: item.distance_km,
@@ -30,7 +31,7 @@ exports.importTrainSchedule = async (trainNumber) => {
 
         const trainType = {
             method: 'GET',
-            url: `https://rail-info-api-india1.p.rapidapi.com/v1/trains/${trainNumber}`,
+            url: `https://rail-info-api-india1.p.rapidapi.com/v1/trains/${formattedTrain}`,
             headers: {
                 'X-RapidAPI-Key': process.env.RAPID_API_KEY,
                 'X-RapidAPI-Host': 'rail-info-api-india1.p.rapidapi.com'
@@ -52,8 +53,11 @@ exports.importTrainSchedule = async (trainNumber) => {
             { $set: newSchedule },
             { upsert: true, new: true }
         )
-        console.log("Schedule Saved Successfully")
     } catch (err) {
-        console.error("Error importing data: ", err)
+        if (err.response) {
+            console.error(`API Error (${err.response.status}):`, err.response.data.message || "Route not found");
+        } else {
+            console.error("Network/Server Error:", err.message);
+        }
     }
 }

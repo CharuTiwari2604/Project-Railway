@@ -1,7 +1,7 @@
 const mongoose = require('mongoose')
 
 const scheduleSchema = new mongoose.Schema({
-    trainNumber: String,
+    trainNumber: { type: String, required: true, unique: true },
     trainName: String,
     trainType: String,
     stations: [{
@@ -11,6 +11,8 @@ const scheduleSchema = new mongoose.Schema({
         departureTime: String,
         distance: Number,
         haltTime: Number,
+        dayCount: { type: Number, default: 1 },
+        platform: { type: String, default: "1" },
         isCommercialStop: {type: Boolean, default: true}
     }]
 })

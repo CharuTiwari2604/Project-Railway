@@ -20,14 +20,32 @@ const Home = () => {
       return;
     }
     setLoading(true);
+    const d = new Date();
+    d.setDate(d.getDate() - parseInt(date)); // Subtract days (0 for today, 1 for yesterday)
+    const apiDate = d.toISOString().split('T')[0].replace(/-/g, '');
+    console.log("Sending Date to API:", apiDate);
     try {
-      const syncRes = await axios.get(`http://localhost:5000/api/live/${trainNumber}`);
-      if(syncRes.status === 200){
-      const res = await axios.get(`http://localhost:5000/api/status/${trainNumber}?start_day=${date}`);
-      console.log("Backend Sent This:", res.data.finalReason.message);
-      setData(res.data);
-      navigate('/mapview', { state: { trainInfo: res.data } });
-      }
+      const syncRes = await axios.get(`http://localhost:5000/api/live/${trainNumber}?departure_date=${apiDate}`);
+      // const syncRes = await axios.get(`http://localhost:5000/api/live/${trainNumber}?forceSync=true`);
+      // if(syncRes.data){
+      //   setTimeout(async()=>{
+          
+      // const res = await axios.get(`http://localhost:5000/api/status/${trainNumber}`);
+      // // const res = await axios.get(`http://localhost:5000/api/status/${trainNumber}?start_day=${date}`);
+      // console.log("Backend Sent This:", res.data.finalReason.message);
+      // // setData(res.data);
+      // navigate('/mapview', { state: { trainInfo: res.data } });
+      // setLoading(false);
+      // }, 500);
+      
+      //   }
+
+      if (syncRes.data && syncRes.data.train) {
+            const res = await axios.get(`http://localhost:5000/api/status/${trainNumber}`);
+            console.log("Khabri Intelligence:", res.data.mergedStatus);
+            navigate('/mapview', { state: { trainInfo: res.data } });
+        }
+
     } catch (err) {
       alert("Train not found or Server down.")
     }

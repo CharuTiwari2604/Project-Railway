@@ -12,8 +12,26 @@ const StatusDashboard = () => {
     const location = useLocation();
     const data = location.state?.trainInfo;
 
+    const officialMessage = data?.liveStatusMessage || "Syncing with Satellite...";
+    const khabriMessage = data?.finalReason?.message || "All Clear";
+    const platform = data?.expectedPlatform || "N/A";
+
     const displayMessage = data?.finalReason?.message || "Running on Schedule";
     const isOvertaking = data?.finalReason?.code === 'OVERTAKE';
+
+    if (!data) {
+        return (
+            <div className="h-screen bg-black flex items-center justify-center">
+                <div className="text-center">
+                    <p className="text-yellow-400 font-bold mb-4">Session Timed Out</p>
+                    <button onClick={() => navigate('/')} className="px-6 py-2 bg-yellow-400 text-black rounded-full font-bold">
+                        RE-SYNC TRAIN
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
 
 
     return (
@@ -37,11 +55,12 @@ const StatusDashboard = () => {
                 <div className="absolute top-[-2.2rem] left-25 flex gap-2">
                     <div className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-tighter flex items-center gap-2 shadow-xl ${isOvertaking ? 'bg-red-600 text-white animate-pulse' : 'bg-yellow-400 text-black'}`}>
                         {isOvertaking && <Zap size={14} />}
-                        {data?.finalReason?.code || "Live Sync"}
+                        {data?.mergedStatus || "Live Sync"}
+                        {/* {data?.finalReason?.code || "Live Sync"} */}
                     </div>
                 </div>
             </div>
-            <div className="h-1/2 bg-[#141414] rounded-t-[40px] p-8  border-white/5">
+            <div className="h-170 bg-[#141414] rounded-t-[40px] p-8  border-white/5">
                 <div className="flex justify-between mb-6">
                     <div>
                         <h2 className="text-2xl font-black text-white leading-tight uppercase">{data?.name}</h2>
@@ -57,11 +76,9 @@ const StatusDashboard = () => {
                         <div className="bg-yellow-400/10 p-3 rounded-2xl">
                             <AlertTriangle className="text-yellow-400" size={24} />
                         </div>
-                        <div>
-                            <p className="text-[9px] text-gray-600 uppercase font-black tracking-widest mb-1">Live Khabri Report</p>
-                            <h3 className="text-lg font-bold text-yellow-500/90 italic">
-                                "{displayMessage}"
-                            </h3>
+                        <div className="flex-1">
+                            <p className="text-[9px] text-gray-600 uppercase font-black tracking-widest mb-1">khabri Status</p>
+                            <h4 className="text-sm font-bold text-white mb-2">{data?.mergedStatus || "Analyzing singnals..."}</h4>
                         </div>
                     </div>
                 </div>
@@ -83,7 +100,9 @@ const StatusDashboard = () => {
                                     <span className="animate-ping absolute -mt-4 inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                                     <span className="relative inline-flex -mt-4 rounded-full h-3 w-3 bg-green-500"></span>
                                 </div>
-                                <p className="text-xl -mt-8 font-black text-white tracking-tighter">{data?.nextStationName}</p>
+                                <p className="text-xl -mt-8 font-black text-white tracking-tighter uppercase">
+                                    {data?.nextStationName}
+                                </p>
                             </div>
                             <div className=" relative mt-10 min-w-40 -ml-23">
                                 <span className="text-[10px] text-gray-500 font-bold mb-0.5">DISTANCE =</span>
@@ -91,6 +110,13 @@ const StatusDashboard = () => {
                                     {data?.distToNext} <span className="text-[10px] text-gray-500">KM</span>
                                 </span>
                             </div>
+                        </div>
+                    </div>
+                    <div className="bg-[#1A1A1A] p-5 rounded-3xl border border-white/5 relative">
+                        <p className="text-[9px] text-gray-600 font-black tracking-[3px] mb-2">TARGET PLATFORM</p>
+                        <div className="flex items-center gap-2">
+                            <p className="text-3xl font-black text-yellow-400">{data?.expectedPlatform || "1"}</p>
+                            <span className="text-[10px] text-gray-500 font-bold uppercase">Expected</span>
                         </div>
                     </div>
                 </div>
