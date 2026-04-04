@@ -30,24 +30,28 @@ exports.getTrainStatus = async (req, res) => {
 
 
         const currentStnIndex = mySchedule.stations.findIndex(s => s.stationCode === myTrain.currentStationCode);
-        const currentKM = Number(myTrain.currentKM);
-        // const nextInMap = mySchedule.stations.find(s => Number(s.distance) >= currentKM) || mySchedule.stations[mySchedule.stations.length - 1];
-       let nextInMap;
-if (currentStnIndex !== -1 && currentStnIndex < mySchedule.stations.length - 1) {
-    nextInMap = mySchedule.stations[currentStnIndex + 1];
-} else {
-    nextInMap = mySchedule.stations.find(s => Number(s.distance) > Number(myTrain.currentKM)) || mySchedule.stations[mySchedule.stations.length - 1];
-}
-        // const distToNext = Math.max(0, Number(nextInMap.distance) - currentKM);
-        const distToNext = Math.abs(Number(nextInMap.distance) - Number(myTrain.currentKM));
-        if (distToNext < 0) distToNext = 0;
+        const liveNextDist = Number(myTrain.nextStationDistance || 0);
+         let nextInMap;
+        if (currentStnIndex !== -1 && currentStnIndex < mySchedule.stations.length - 1) {
+            nextInMap = mySchedule.stations[currentStnIndex + 1];
+        } else {
+            nextInMap = mySchedule.stations.find(s => Number(s.distance) > Number(myTrain.currentKM)) || mySchedule.stations[mySchedule.stations.length - 1];
+        }
 
+        const currentKM = Number(myTrain.currentKM || 0);
+        let distToNext = (liveNextDist > 0)
+            ? Math.abs(liveNextDist - currentKM)
+            : Math.abs(Number(nextInMap.distance) - currentKM);
+
+        if (distToNext < 0.5 || myTrain.currentStationCode === nextInMap.stationCode) {
+            distToNext = 0;
+        }
+       
         let finalReason = {
             code: "ON_TIME",
             severity: "normal",
             message: myTrain.liveStatusMessage || "Running on Schedule"
         };
-
 
         let sectionTrains = [];
         if (forceSync === "true") {
@@ -61,9 +65,7 @@ if (currentStnIndex !== -1 && currentStnIndex < mySchedule.stations.length - 1) 
             sectionTrains = [{ train_name: "12301 - RAJDHANI", train_type: "rajdhani", distance_km: (myTrain.currentKM + 3), speed: 130 }];
         }
 
-
-        // if (myTrain.currentStationCode === mySchedule.stations[mySchedule.stations.length - 1].stationCode) {       //finished
-        if (distToNext < 0.5) {
+ if (distToNext < 0.5) {
             finalReason = { code: "ARRIVED", severity: "success", message: ` Journey Completed at ${nextInMap.stationName}.` };
         }
 
@@ -78,7 +80,6 @@ if (currentStnIndex !== -1 && currentStnIndex < mySchedule.stations.length - 1) 
             }
 
             else if (myTrain.currentSpeed === 0 && distToNext <= 1.5) {
-                // const targetPlatform = myTrain.expectedPlatform || "1";
                 const targetPlatform = myTrain.expectedPlatform || nextInMap.platform || "1";
                 const isOccupied = sectionTrains.some(t => t.platform === targetPlatform && t.status === "Arrived");
 
@@ -209,16 +210,23 @@ exports.syncWithApi = async (req, res) => {
 
         const currentStnCode = dataBody.current_station || dataBody.current_station_code || dataBody.station_code || "Unknown";
         const stationsArray = dataBody.stations || dataBody.station_list || dataBody.route || [];
+        const currentIdx = stationsArray.findIndex(s =>
+            (s.stationCode || s.station_code) === currentStnCode
+        );
+        const liveNextStn = stationsArray[currentIdx + 1];
 
         const currentStnData = stationsArray.find(s =>
             s.stationCode === currentStnCode ||
             s.station_code === currentStnCode
         );
+        if (liveNextStn) {
+            train.nextStationName = liveNextStn.stationName || liveNextStn.station_name;
+            train.nextStationDistance = Number(liveNextStn.distance || 0);
+        }
 
         train.currentKM = Number(currentStnData?.distance || dataBody.distance_from_source || train.currentKM || 0);
         train.currentStationCode = currentStnCode;
         train.currentSpeed = dataBody.current_speed || 0;
-        // train.liveStatusMessage = dataBody.train_status_message || "In Transit";
         train.expectedPlatform = currentStnData?.expected_platform || "N/A";
         train.lastUpdatedAt = new Date();
 

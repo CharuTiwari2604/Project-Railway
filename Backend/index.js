@@ -10,7 +10,6 @@ const PORT= process.env.PORT || 5000;
  app.use(express.json());
 
  setInterval(()=>{
-   // autoSyncAllTrains()
  }, 1200000)
 
  app.get('/', (req, res)=>{

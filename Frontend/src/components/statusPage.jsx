@@ -12,11 +12,6 @@ const StatusDashboard = () => {
     const location = useLocation();
     const data = location.state?.trainInfo;
 
-    const officialMessage = data?.liveStatusMessage || "Syncing with Satellite...";
-    const khabriMessage = data?.finalReason?.message || "All Clear";
-    const platform = data?.expectedPlatform || "N/A";
-
-    const displayMessage = data?.finalReason?.message || "Running on Schedule";
     const isOvertaking = data?.finalReason?.code === 'OVERTAKE';
 
     if (!data) {
@@ -31,7 +26,6 @@ const StatusDashboard = () => {
             </div>
         );
     }
-
 
 
     return (
@@ -56,7 +50,6 @@ const StatusDashboard = () => {
                     <div className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-tighter flex items-center gap-2 shadow-xl ${isOvertaking ? 'bg-red-600 text-white animate-pulse' : 'bg-yellow-400 text-black'}`}>
                         {isOvertaking && <Zap size={14} />}
                         {data?.mergedStatus || "Live Sync"}
-                        {/* {data?.finalReason?.code || "Live Sync"} */}
                     </div>
                 </div>
             </div>

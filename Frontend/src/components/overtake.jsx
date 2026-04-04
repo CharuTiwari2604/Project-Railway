@@ -59,7 +59,7 @@ const OverTake = ({ isOvertaking, isStationFull, trainName, data, isRush }) => {
 
             {isRush && (
                 <group ref={aheadTrainRef} position={[-3.5, 0, 30]} rotation={[0, Math.PI, 0]}>
-                    <Train color="#555555" /> {/* Grey to show it's a 'Ghost' or 'Another' train */}
+                    <Train color="#555555" />
                     <Html position={[0, 3, 0]} center>
                         <div className="bg-gray-800/80 px-2 py-1 rounded border border-gray-500">
                             <p className="text-[8px] font-bold text-white uppercase whitespace-nowrap">

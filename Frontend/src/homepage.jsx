@@ -24,25 +24,6 @@ const Home = () => {
     const apiDate = d.toISOString().split('T')[0].replace(/-/g, '');
     try {
       const syncRes = await axios.get(`http://localhost:5000/api/live/${trainNumber}?departure_date=${apiDate}`);
-      // const syncRes = await axios.get(`http://localhost:5000/api/live/${trainNumber}?forceSync=true`);
-      // if(syncRes.data){
-      //   setTimeout(async()=>{
-          
-      // const res = await axios.get(`http://localhost:5000/api/status/${trainNumber}`);
-      // // const res = await axios.get(`http://localhost:5000/api/status/${trainNumber}?start_day=${date}`);
-      // console.log("Backend Sent This:", res.data.finalReason.message);
-      // // setData(res.data);
-      // navigate('/mapview', { state: { trainInfo: res.data } });
-      // setLoading(false);
-      // }, 500);
-      
-      //   }
-
-      // if (syncRes.data && syncRes.data.train) {
-      //       const res = await axios.get(`http://localhost:5000/api/status/${trainNumber}`);
-      //       console.log("Khabri Intelligence:", res.data.mergedStatus);
-      //       navigate('/mapview', { state: { trainInfo: res.data } });
-      //   }
       if (syncRes.data) {
             const res = await axios.get(`http://localhost:5000/api/status/${trainNumber}`);
             console.log("Final Status for Dashboard:", res.data.mergedStatus);
