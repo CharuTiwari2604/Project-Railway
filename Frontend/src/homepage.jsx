@@ -10,7 +10,6 @@ const Home = () => {
   const [loading, setLoading] = useState(false);
   const [date, setDate] = useState('0');
 
-
   const navigate = useNavigate();
 
   const handleSearch = async (e) => {
@@ -21,9 +20,8 @@ const Home = () => {
     }
     setLoading(true);
     const d = new Date();
-    d.setDate(d.getDate() - parseInt(date)); // Subtract days (0 for today, 1 for yesterday)
+    d.setDate(d.getDate() - parseInt(date)); 
     const apiDate = d.toISOString().split('T')[0].replace(/-/g, '');
-    console.log("Sending Date to API:", apiDate);
     try {
       const syncRes = await axios.get(`http://localhost:5000/api/live/${trainNumber}?departure_date=${apiDate}`);
       // const syncRes = await axios.get(`http://localhost:5000/api/live/${trainNumber}?forceSync=true`);
@@ -40,16 +38,21 @@ const Home = () => {
       
       //   }
 
-      if (syncRes.data && syncRes.data.train) {
+      // if (syncRes.data && syncRes.data.train) {
+      //       const res = await axios.get(`http://localhost:5000/api/status/${trainNumber}`);
+      //       console.log("Khabri Intelligence:", res.data.mergedStatus);
+      //       navigate('/mapview', { state: { trainInfo: res.data } });
+      //   }
+      if (syncRes.data) {
             const res = await axios.get(`http://localhost:5000/api/status/${trainNumber}`);
-            console.log("Khabri Intelligence:", res.data.mergedStatus);
+            console.log("Final Status for Dashboard:", res.data.mergedStatus);
             navigate('/mapview', { state: { trainInfo: res.data } });
         }
-
     } catch (err) {
-      alert("Train not found or Server down.")
+      alert("Train not found or Sync failed.")
+    }finally {
+        setLoading(false);
     }
-    setLoading(false);
   }
 
 
