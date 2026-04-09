@@ -17,6 +17,7 @@ exports.getTrainStatus = async (req, res) => {
         const priorityMap = { "rajdhani": 1, "shatabdi": 1, "duronto": 1, "superfast": 2, "express": 3, "passenger": 4 };
         const myPriority = priorityMap[mySchedule.trainType?.toLowerCase()] || 3;
 
+
         if (!myTrain) {
             myTrain = new Train({
                 trainNumber,
@@ -28,25 +29,26 @@ exports.getTrainStatus = async (req, res) => {
             await myTrain.save();
         }
 
-
         const currentStnIndex = mySchedule.stations.findIndex(s => s.stationCode === myTrain.currentStationCode);
-        const liveNextDist = Number(myTrain.nextStationDistance || 0);
-         let nextInMap;
+
+        let nextInMap;
         if (currentStnIndex !== -1 && currentStnIndex < mySchedule.stations.length - 1) {
             nextInMap = mySchedule.stations[currentStnIndex + 1];
         } else {
             nextInMap = mySchedule.stations.find(s => Number(s.distance) > Number(myTrain.currentKM)) || mySchedule.stations[mySchedule.stations.length - 1];
         }
 
+
         const currentKM = Number(myTrain.currentKM || 0);
-        let distToNext = (liveNextDist > 0)
-            ? Math.abs(liveNextDist - currentKM)
-            : Math.abs(Number(nextInMap.distance) - currentKM);
+        const liveNextDist = Number(myTrain.nextStationDistance || 0);
+
+        let distToNext = (liveNextDist > 0) ? Math.abs(liveNextDist - currentKM) : Math.abs(Number(nextInMap.distance) - currentKM);
 
         if (distToNext < 0.5 || myTrain.currentStationCode === nextInMap.stationCode) {
             distToNext = 0;
         }
-       
+
+
         let finalReason = {
             code: "ON_TIME",
             severity: "normal",
@@ -65,7 +67,7 @@ exports.getTrainStatus = async (req, res) => {
             sectionTrains = [{ train_name: "12301 - RAJDHANI", train_type: "rajdhani", distance_km: (myTrain.currentKM + 3), speed: 130 }];
         }
 
- if (distToNext < 0.5) {
+        if (distToNext < 0.5) {
             finalReason = { code: "ARRIVED", severity: "success", message: ` Journey Completed at ${nextInMap.stationName}.` };
         }
 
@@ -120,7 +122,8 @@ exports.getTrainStatus = async (req, res) => {
             name: myTrain?.name,
             currentSpeed: myTrain?.currentSpeed || 0,
             currentKM: myTrain?.currentKM || 0,
-            nextStationName: nextInMap?.stationName || nextInMap?.stationCode || "Tracking...",
+            currentStationName: myTrain.currentStationName || myTrain.currentStationCode,
+            nextStationName: myTrain.nextStationName || myTrain.currentStationCode,
             distToNext: parseFloat(distToNext.toFixed(1)) || 0,
             mergedStatus: finalReason?.message || "Syncing data...",
             expectedPlatform: myTrain?.expectedPlatform || "1",
@@ -178,11 +181,11 @@ exports.syncWithApi = async (req, res) => {
             apiData = {
                 train_number: trainNumber,
                 current_station: "NBQ",
-                current_speed: 0,
+                current_speed: 60,
                 train_status_message: "API Offline, using mock location",
                 stations: [
-                    { stationCode: "NBQ", distance: "0", expected_platform: "3", stationName: "New Bongaigaon junction" },
-                    { stationCode: "GHY", distance: "40", expected_platform: "2", stationName: "Guwahati junction" }
+                    { stationCode: "NBQ", distance: "0", expected_platform: "3", name: "New Bongaigaon junction" },
+                    { stationCode: "GHY", distance: "40", expected_platform: "2", name: "Guwahati junction" }
                 ]
             };
         }
@@ -208,20 +211,21 @@ exports.syncWithApi = async (req, res) => {
         const dataBody = apiData.body || apiData;
         train.liveStatusMessage = dataBody.train_status_message?.replace(/<[^>]*>/g, '') || "In Transit";
 
-        const currentStnCode = dataBody.current_station || dataBody.current_station_code || dataBody.station_code || "Unknown";
         const stationsArray = dataBody.stations || dataBody.station_list || dataBody.route || [];
-        const currentIdx = stationsArray.findIndex(s =>
-            (s.stationCode || s.station_code) === currentStnCode
-        );
+        const currentStnCode = dataBody.current_station || dataBody.current_station_code || dataBody.station_code || "Unknown";
+        const currentStnData = stationsArray.find(s => s.stationCode === currentStnCode);
+        const currentIdx = stationsArray.findIndex(s => s.stationCode === currentStnCode);
         const liveNextStn = stationsArray[currentIdx + 1];
 
-        const currentStnData = stationsArray.find(s =>
-            s.stationCode === currentStnCode ||
-            s.station_code === currentStnCode
-        );
+        train.currentStationName = currentStnData?.stationName || currentStnData?.name || currentStnCode;
+        train.currentStationCode = currentStnCode;
+
         if (liveNextStn) {
-            train.nextStationName = liveNextStn.stationName || liveNextStn.station_name;
+            train.nextStationName = liveNextStn.stationName || liveNextStn.name || liveNextStn.stationCode;
             train.nextStationDistance = Number(liveNextStn.distance || 0);
+        } else {
+            train.nextStationName = "Final Destination";
+            train.nextStationDistance = 0;
         }
 
         train.currentKM = Number(currentStnData?.distance || dataBody.distance_from_source || train.currentKM || 0);
