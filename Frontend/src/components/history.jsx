@@ -3,7 +3,10 @@ import { ArrowLeft, Clock, ChevronRight, Train, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 const HistoryPage = () => {
+
   const navigate = useNavigate();
 
   const [history, setHistory] = useState([]);
@@ -13,7 +16,7 @@ const HistoryPage = () => {
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        const res = await axios.get('http://localhost:5000/api/history');
+        const res = await axios.get(`${API_BASE}/api/history`);
         setHistory(res.data);
       } catch (err) {
         console.error("History Error: ", err);

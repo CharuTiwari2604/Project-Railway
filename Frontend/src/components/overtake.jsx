@@ -3,21 +3,20 @@ import { useFrame } from '@react-three/fiber';
 import { Train } from '../../Train_model';
 import { Html } from '@react-three/drei';
 
-const OverTake = ({ isOvertaking, isStationFull, trainName, data, isRush }) => {
+const OverTake = ({ isOvertaking, isStationFull, trainName, data, isRush}) => {
     const vipTrainRef = useRef();
     const myTrainRef = useRef();
     const aheadTrainRef = useRef();
 
     useFrame((state, delta) => {
         if (!myTrainRef.current) return;
-        const speed = data?.currentSpeed || 0;
-        if (speed > 0 && !isOvertaking && !isRush) {
-            myTrainRef.current.position.z += (speed * 0.05) * delta;
+        const speed = Number(data?.currentSpeed) || 0;
+        if (speed > 0) {
+            myTrainRef.current.position.z += (speed * 0.5) * delta;
         }
 
         if (isOvertaking && vipTrainRef.current) {
-            vipTrainRef.current.position.z += 15 * delta;      //vip train speed
-            myTrainRef.current.position.z += (speed * 0.05) * delta; //move slowly
+            vipTrainRef.current.position.z += 15 * delta;    
 
             if (vipTrainRef.current.position.z > 60) {
                 vipTrainRef.current.position.z = -80;
@@ -28,8 +27,8 @@ const OverTake = ({ isOvertaking, isStationFull, trainName, data, isRush }) => {
             myTrainRef.current.position.z += 2 * delta;
             aheadTrainRef.current.position.z = myTrainRef.current.position.z + 15;
         }
-        if (myTrainRef.current.position.z > 50) {
-            myTrainRef.current.position.z = -50;
+        if (myTrainRef.current.position.z > 100) {
+            myTrainRef.current.position.z = -100;
         }
     })
 

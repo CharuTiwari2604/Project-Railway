@@ -3,6 +3,8 @@ import axios from 'axios';
 import {  Train, Calendar } from 'lucide-react';
 import { useNavigate } from "react-router-dom";
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 const Home = () => {
 
   const [trainNumber, setTrainNumber] = useState('');
@@ -23,9 +25,9 @@ const Home = () => {
     d.setDate(d.getDate() - parseInt(date)); 
     const apiDate = d.toISOString().split('T')[0].replace(/-/g, '');
     try {
-      const syncRes = await axios.get(`http://localhost:5000/api/live/${trainNumber}?departure_date=${apiDate}`);
+      const syncRes = await axios.get(`${API_BASE}/api/live/${trainNumber}?departure_date=${apiDate}`);
       if (syncRes.data) {
-            const res = await axios.get(`http://localhost:5000/api/status/${trainNumber}`);
+            const res = await axios.get(`${API_BASE}/api/status/${trainNumber}`);
             console.log("Final Status for Dashboard:", res.data.mergedStatus);
             navigate('/mapview', { state: { trainInfo: res.data } });
         }

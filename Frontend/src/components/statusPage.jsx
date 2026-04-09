@@ -13,6 +13,8 @@ const StatusDashboard = () => {
     const data = location.state?.trainInfo;
 
     const isOvertaking = data?.finalReason?.code === 'OVERTAKE';
+    const lastUpdate = new Date(data?.lastUpdatedAt).getTime();
+    const isLive = (new Date().getTime() - lastUpdate) < 120000;
 
     if (!data) {
         return (
@@ -41,15 +43,16 @@ const StatusDashboard = () => {
                     <Environment preset='apartment' />
                     <Suspense fallback={null}>
                         <group position={[0, -1, 0]} >
-                            <OverTake isOvertaking={isOvertaking} trainName={data?.name} />
+                            <OverTake data={data} isOvertaking={isOvertaking} trainName={data?.name} />
                         </group>
                     </Suspense>
                     <OrbitControls enableZoom={false} enableRotate={false} enablePan={false} target={[0, 0, 0]} />
                 </Canvas>
                 <div className="absolute top-[-2.2rem] left-25 flex gap-2">
-                    <div className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-tighter flex items-center gap-2 shadow-xl ${isOvertaking ? 'bg-red-600 text-white animate-pulse' : 'bg-yellow-400 text-black'}`}>
+                    <div className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-tighter flex items-center gap-2 shadow-xl 
+                       ${isOvertaking ? 'bg-red-600 text-white animate-pulse' : isLive ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-yellow-400/20 text-yellow-400 border border-yellow-400/20' }`}>
                         {isOvertaking && <Zap size={14} />}
-                        {data?.mergedStatus || "Live Sync"}
+                        {isOvertaking ? "⚠️ Overtake Alert" : isLive ? " Live Sync" : "Last Known Details"}
                     </div>
                 </div>
             </div>
@@ -85,6 +88,29 @@ const StatusDashboard = () => {
                         </div>
                     </div>
 
+                    <div className="bg-[#1A1A1A] p-5 rounded-3xl border border-white/5 relative">
+                        <p className="text-[9px] text-gray-600 font-black tracking-[3px] mb-2">TARGET PLATFORM</p>
+                        <div className="flex items-center gap-2">
+                            <p className="text-3xl font-black text-yellow-400">{data?.expectedPlatform || "1"}</p>
+                            <span className="text-[10px] text-gray-500 font-bold uppercase">Expected</span>
+                        </div>
+                    </div>
+
+                    <div className="bg-[#1A1A1A] p-5 rounded-3xl border border-white/5">
+                        <p className="text-[9px] text-gray-600 font-black tracking-[3px] mb-2">CURRENT STATION</p>
+                        <div className="flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                                <div className="relative flex h-3 w-3">
+                                    <span className="animate-ping absolute mt-2 inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                    <span className="relative inline-flex mt-2 rounded-full h-3 w-3 bg-green-500"></span>
+                                </div>
+                                <p className="text-xl mt-3 font-black text-white tracking-tighter uppercase">
+                                    {data?.currentStationName || data?.currentStationCode ||"initialising" }
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
                     <div className="bg-[#1A1A1A] p-5 rounded-3xl border border-white/5">
                         <p className="text-[9px] text-gray-600 font-black tracking-[3px] mb-2">NEXT STATION</p>
                         <div className="flex items-center justify-between gap-4">
@@ -94,7 +120,7 @@ const StatusDashboard = () => {
                                     <span className="relative inline-flex -mt-4 rounded-full h-3 w-3 bg-green-500"></span>
                                 </div>
                                 <p className="text-xl -mt-8 font-black text-white tracking-tighter uppercase">
-                                    {data?.nextStationName}
+                                    {data?.nextStationName || data?.nextStationCode}
                                 </p>
                             </div>
                             <div className=" relative mt-10 min-w-40 -ml-23">
@@ -103,13 +129,6 @@ const StatusDashboard = () => {
                                     {data?.distToNext} <span className="text-[10px] text-gray-500">KM</span>
                                 </span>
                             </div>
-                        </div>
-                    </div>
-                    <div className="bg-[#1A1A1A] p-5 rounded-3xl border border-white/5 relative">
-                        <p className="text-[9px] text-gray-600 font-black tracking-[3px] mb-2">TARGET PLATFORM</p>
-                        <div className="flex items-center gap-2">
-                            <p className="text-3xl font-black text-yellow-400">{data?.expectedPlatform || "1"}</p>
-                            <span className="text-[10px] text-gray-500 font-bold uppercase">Expected</span>
                         </div>
                     </div>
                 </div>
