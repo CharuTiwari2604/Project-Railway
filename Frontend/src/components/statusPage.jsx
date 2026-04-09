@@ -104,8 +104,8 @@ const StatusDashboard = () => {
                                     <span className="animate-ping absolute mt-2 inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                                     <span className="relative inline-flex mt-2 rounded-full h-3 w-3 bg-green-500"></span>
                                 </div>
-                                <p className="text-xl mt-3 font-black text-white tracking-tighter uppercase">
-                                    {data?.currentStationName || data?.currentStationCode ||"initialising" }
+                                <p className="text-xs lg:text-xl  mt-3 font-black text-white tracking-tighter uppercase">
+                                    {data?.currentStationName || data?.currentStationCode }
                                 </p>
                             </div>
                         </div>
@@ -119,7 +119,7 @@ const StatusDashboard = () => {
                                     <span className="animate-ping absolute -mt-4 inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                                     <span className="relative inline-flex -mt-4 rounded-full h-3 w-3 bg-green-500"></span>
                                 </div>
-                                <p className="text-xl -mt-8 font-black text-white tracking-tighter uppercase">
+                                <p className="text-xs lg:text-xl -mt-8 font-black text-white tracking-tighter uppercase">
                                     {data?.nextStationName || data?.nextStationCode}
                                 </p>
                             </div>
