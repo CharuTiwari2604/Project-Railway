@@ -5,7 +5,6 @@ const TrainSchema = new mongoose.Schema({
     name: String,
     priority: { type: Number, default: 3 }, 
     currentKM: { type: Number, default: 0 },
-    currentSpeed: { type: Number, default: 0 },
     totalDelay: { type: Number, default: 0 }, 
     currentStationCode: String,
     currentStationName: String,
@@ -23,8 +22,7 @@ const TrainSchema = new mongoose.Schema({
     history: [{
         message: String,
         timestamp: { type: Date, default: Date.now }
-    }],
-    route: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Station' }]
+    }]
 });
 
 

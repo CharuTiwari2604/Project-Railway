@@ -49,17 +49,18 @@ const StatusDashboard = () => {
                     <OrbitControls enableZoom={false} enableRotate={false} enablePan={false} target={[0, 0, 0]} />
                 </Canvas>
                 <div className="absolute top-[-2.2rem] left-25 flex gap-2">
-                    <div className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-tighter flex items-center gap-2 shadow-xl 
-                       ${isOvertaking ? 'bg-red-600 text-white animate-pulse' : isLive ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-yellow-400/20 text-yellow-400 border border-yellow-400/20' }`}>
-                        {isOvertaking && <Zap size={14} />}
-                        {isOvertaking ? "⚠️ Overtake Alert" : isLive ? " Live Sync" : "Last Known Details"}
-                    </div>
+                    {isOvertaking && (
+                        <div className="px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-tighter flex items-center gap-2 shadow-xl bg-red-600 text-white animate-pulse">
+                            <Zap size={14} />
+                            <span>⚠️ Overtake Alert</span>
+                        </div>
+                    )}
                 </div>
             </div>
             <div className="h-170 bg-[#141414] rounded-t-[40px] p-8  border-white/5">
                 <div className="flex justify-between mb-6">
                     <div>
-                        <h2 className="text-2xl font-black text-white leading-tight uppercase">{data?.name}</h2>
+                        <h2 className="text-xl font-black text-white leading-tight uppercase">{data?.name}</h2>
                         <p className="text-gray-500 font-bold text-xs tracking-[0.2em]">{data?.trainNumber}</p>
                     </div>
                     <div className="bg-yellow-400/10 p-3 rounded-2xl max-h-13 border border-yellow-400/20">
@@ -81,10 +82,9 @@ const StatusDashboard = () => {
 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="bg-[#1A1A1A] p-5 rounded-3xl border border-white/5">
-                        <p className="text-[9px] text-gray-600 font-black tracking-widest mb-2">CURRENT SPEED</p>
+                        <p className="text-[9px] text-gray-600 font-black tracking-widest mb-2">SCHEDULE STATUS</p>
                         <div className="flex items-end gap-2">
-                            <p className="text-3xl font-black text-white leading-none">{data?.currentSpeed}</p>
-                            <p className="text-[10px] text-gray-500 font-bold mb-1">KM/H</p>
+                            <p className={`text-lg font-black text-white leading-none ${data?.totalDelay > 0 ? 'text-red' : 'text-green'}`}>{data?.totalDelay > 0 ? `${data?.totalDelay} Mins Late` : 'On Time'}</p>
                         </div>
                     </div>
 
@@ -105,7 +105,7 @@ const StatusDashboard = () => {
                                     <span className="relative inline-flex mt-2 rounded-full h-3 w-3 bg-green-500"></span>
                                 </div>
                                 <p className="text-xs lg:text-xl  mt-3 font-black text-white tracking-tighter uppercase">
-                                    {data?.currentStationName || data?.currentStationCode }
+                                    {data?.currentStationName || data?.currentStationCode}
                                 </p>
                             </div>
                         </div>

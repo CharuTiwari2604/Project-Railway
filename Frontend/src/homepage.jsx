@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import axios from 'axios';
-import {  Train, Calendar } from 'lucide-react';
+import { Train, Calendar } from 'lucide-react';
 import { useNavigate } from "react-router-dom";
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -16,25 +16,25 @@ const Home = () => {
 
   const handleSearch = async (e) => {
     e.preventDefault();
-    if (!trainNumber || !date ) {
+    if (!trainNumber || !date) {
       alert("Please Select both Train Number and Day!")
       return;
     }
+
     setLoading(true);
-    const d = new Date();
-    d.setDate(d.getDate() - parseInt(date)); 
-    const apiDate = d.toISOString().split('T')[0].replace(/-/g, '');
     try {
-      const syncRes = await axios.get(`${API_BASE}/api/live/${trainNumber}?departure_date=${apiDate}`);
+      const syncRes = await axios.get(`${API_BASE}/api/train/${trainNumber.trim()}/sync?startDay=${date}`);
       if (syncRes.data) {
-            const res = await axios.get(`${API_BASE}/api/status/${trainNumber}`);
-            console.log("Final Status for Dashboard:", res.data.mergedStatus);
-            navigate('/mapview', { state: { trainInfo: res.data } });
-        }
+        const res = await axios.get(`${API_BASE}/api/train/${trainNumber.trim()}/status`);
+        console.log("Final Status for Dashboard:", res.data.mergedStatus);
+        navigate('/mapview', { state: { trainInfo: res.data } });
+      }
     } catch (err) {
-      alert("Train not found or Sync failed.")
-    }finally {
-        setLoading(false);
+      console.error("Search Error Details:", err.response?.data || err.message);
+      const errorMsg = err.response?.data?.detail || err.response?.data?.message || "Train not found or Sync failed.";
+      alert(errorMsg);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -78,13 +78,10 @@ const Home = () => {
                   START DAY
                 </label>
                 <select className="w-full text-lg font-bold text-white focus:outline-none cursor-pointer appearance-none pl-4 -ml-4" id="date" value={date} onChange={(e) => setDate(e.target.value)} required >
-                  <option value="" disabled className="bg-[#141414]">Select Starting Day</option>
-                  <option value="0" className="bg-[#141414]">Day 0 (Started Today)</option>
-                  <option value="1" className="bg-[#141414]">Day 1 (Started Yesterday)</option>
-                  <option value="2" className="bg-[#141414]">Day 2 (2 Days Ago)</option>
-                  <option value="3" className="bg-[#141414]">Day 3 (3 Days Ago)</option>
-                  <option value="4" className="bg-[#141414]">Day 4 (4 Days Ago)</option>
-                  <option value="5" className="bg-[#141414]">Day 5 (5 Days Ago)</option>
+                  <option value="0" className="bg-[#141414]">Day 1 (Started Today)</option>
+                  <option value="1" className="bg-[#141414]">Day 2 (Started Yesterday)</option>
+                  <option value="2" className="bg-[#141414]">Day 3 (2 Days Ago)</option>
+                  <option value="3" className="bg-[#141414]">Day 4 (3 Days Ago)</option>
                 </select>
               </div>
             </div>

@@ -5,8 +5,8 @@ const { importTrainSchedule } = require('../controller/staticDataApi');
 const trainRouter = express.Router();
 
 trainRouter.get('/all', getAllTrains)
-trainRouter.get('/status/:trainNumber', getTrainStatus)
-trainRouter.get('/live/:trainNumber', syncWithApi)
+trainRouter.get('/:trainNumber/status', getTrainStatus)
+trainRouter.get('/:trainNumber/sync', syncWithApi)
 
 
 trainRouter.post('/weather', async(req, res)=>{

@@ -2,32 +2,31 @@ const axios = require('axios')
 const Train = require('../models/trainmodel')
 const Station = require('../models/stationmodel')
 const Schedule = require('../models/schedulemodel')
-const { v4: uuidv4 } = require('uuid');
 
 exports.getTrainStatus = async (req, res) => {
     try {
         const { trainNumber } = req.params;
         const { forceSync } = req.query;
 
-        const mySchedule = await Schedule.findOne({ trainNumber: trainNumber.toString().trim() });
-        if (!mySchedule) return res.status(404).json({ message: "Schedule Map not found" })
+        let mySchedule = await Schedule.findOne({ trainNumber: trainNumber.toString().trim() });
 
-        let myTrain = await Train.findOne({ trainNumber }).populate('route');
+        let myTrain = await Train.findOne({ trainNumber });
+        if (!myTrain) return res.status(404).json({ message: "Train tracking record not initialized yet. Run sync first." });
+        
+       if (!mySchedule) {
+            mySchedule = {
+                trainNumber,
+                trainName: myTrain.name !== "Initializing..." ? myTrain.name : `Train ${trainNumber}`,
+                trainType: "express",
+                stations: [
+                    { stationCode: myTrain.currentStationCode, stationName: myTrain.currentStationName, distance: myTrain.currentKM },
+                    { stationCode: "NEXT_STN", stationName: myTrain.nextStationName, distance: myTrain.nextStationDistance || (myTrain.currentKM + 50) }
+                ]
+            };
+        }
 
         const priorityMap = { "rajdhani": 1, "shatabdi": 1, "duronto": 1, "superfast": 2, "express": 3, "passenger": 4 };
         const myPriority = priorityMap[mySchedule.trainType?.toLowerCase()] || 3;
-
-
-        if (!myTrain) {
-            myTrain = new Train({
-                trainNumber,
-                name: mySchedule.trainName,
-                priority: myPriority,
-                currentKM: 0,
-                liveStatusMessage: "Initializing Khabri Tracking..."
-            });
-            await myTrain.save();
-        }
 
         const currentStnIndex = mySchedule.stations.findIndex(s => s.stationCode === myTrain.currentStationCode);
 
@@ -38,75 +37,80 @@ exports.getTrainStatus = async (req, res) => {
             nextInMap = mySchedule.stations.find(s => Number(s.distance) > Number(myTrain.currentKM)) || mySchedule.stations[mySchedule.stations.length - 1];
         }
 
-
-        const currentKM = Number(myTrain.currentKM || 0);
-        const liveNextDist = Number(myTrain.nextStationDistance || 0);
-
-        let distToNext = (liveNextDist > 0) ? Math.abs(liveNextDist - currentKM) : Math.abs(Number(nextInMap.distance) - currentKM);
-
-        if (distToNext < 0.5 || myTrain.currentStationCode === nextInMap.stationCode) {
-            distToNext = 0;
-        }
-
+        let distToNext =  Number(myTrain.nextStationDistance || 0);
 
         let finalReason = {
             code: "ON_TIME",
             severity: "normal",
             message: myTrain.liveStatusMessage || "Running on Schedule"
         };
+        
+        const isArrivedState = distToNext === 0;
+
+       if (myTrain.totalDelay > 0 && !isArrivedState) {
+            finalReason.message = `Delayed by ${myTrain.totalDelay} minutes. ${myTrain.liveStatusMessage}`;
+            finalReason.severity = "medium";
+        } else if (isArrivedState) {
+            finalReason = { 
+                code: "ARRIVED", 
+                severity: "success", 
+                message: myTrain.liveStatusMessage || `Arrived at ${myTrain.nextStationName}.` 
+            };
+        }
 
         let sectionTrains = [];
         if (forceSync === "true") {
             try {                                           //getTrainsBetween
-                const trafficRes = await axios.get(`https://rail-info-api-india1.p.rapidapi.com/v1/trains/between?from=${myTrain.currentStationCode}&to=${nextInMap.stationCode}`, {
+                const trafficRes = await axios.get(`https://rail-info-api-india1.p.rapidapi.com/v1/trains/between?from=${myTrain.currentStationCode}&to=${myTrain.nextStationName}`, {
                     headers: { 'X-RapidAPI-Key': process.env.RAPID_API_KEY }
                 });
                 sectionTrains = trafficRes.data.data || [];
             } catch (e) { console.log("Traffic API failed, using fallback."); }
-        } else {
-            sectionTrains = [{ train_name: "12301 - RAJDHANI", train_type: "rajdhani", distance_km: (myTrain.currentKM + 3), speed: 130 }];
+        } 
+        else{
+            sectionTrains=[];
         }
 
-        if (distToNext < 0.5) {
-            finalReason = { code: "ARRIVED", severity: "success", message: ` Journey Completed at ${nextInMap.stationName}.` };
-        }
-
-        else {                                                          //overtake
+const targetPlatform = nextInMap?.platform || "1";
+        if (distToNext === 0) {
+           finalReason = { code: "ARRIVED", severity: "success", message: `Arrived at ${myTrain.nextStationName}.` };
+        } else {                                         
             const stalker = sectionTrains.find(t => (priorityMap[t.train_type?.toLowerCase()] || 3) < myPriority);
-            if (myTrain.currentSpeed === 0 && distToNext > 1.5 && stalker) {
-                finalReason = {
-                    code: "OVERTAKE",
-                    severity: "high",
-                    message: `Waiting at Outer for ${stalker.train_name} to pass. Priority Overtake in progress.`
-                };
+
+            const isTrainStalled = myTrain.totalDelay > 0 || myTrain.liveStatusMessage.toLowerCase().includes("stopped")
+            if (isTrainStalled && distToNext >= 15) {
+                if (stalker) {
+                    finalReason = {
+                        code: "OVERTAKE",
+                        severity: "high",
+                        message: `Waiting on loop track for higher priority ${stalker.train_name} to pass.`
+                    };
+                } else {
+                    finalReason = {
+                        code: "TECHNICAL",
+                        severity: "medium",
+                        message: "Section Traffic Congestion: Blocked by train traffic directly ahead."
+                    };
+                }
             }
 
-            else if (myTrain.currentSpeed === 0 && distToNext <= 1.5) {
-                const targetPlatform = myTrain.expectedPlatform || nextInMap.platform || "1";
+            else if (isTrainStalled && distToNext <= 5) {
+                const targetPlatform = nextInMap?.platform || "1";
                 const isOccupied = sectionTrains.some(t => t.platform === targetPlatform && t.status === "Arrived");
 
                 if (isOccupied) {
                     finalReason = {
                         code: "PLATFORM_FULL",
                         severity: "medium",
-                        message: ` Platform ${targetPlatform} at ${nextInMap.stationName} is occupied. Waiting for clearance.`
+                        message: `Outer Signal Halt: Platform ${targetPlatform} at ${myTrain.nextStationName} is full. Waiting for clearance.`
                     };
                 } else {
                     finalReason = {
                         code: "HALT",
                         severity: "normal",
-                        message: ` Halt at ${nextInMap.stationCode} (Platform: ${targetPlatform}).`
+                        message: `Approaching Station: Clear to enter ${myTrain.nextStationName} on Platform ${targetPlatform}.`
                     };
                 }
-            }
-
-            else if (myTrain.currentSpeed === 0 && distToNext > 5) {
-                const isLiveUpdateBetter = myTrain.liveStatusMessage && myTrain.liveStatusMessage.length > 10;
-                finalReason = {
-                    code: "TECHNICAL",
-                    severity: "medium",
-                    message: isLiveUpdateBetter ? myTrain.liveStatusMessage : "Technical Halt: Waiting for signal or track maintenance."
-                };
             }
         }
 
@@ -117,16 +121,17 @@ exports.getTrainStatus = async (req, res) => {
             await myTrain.save();
         }
 
+
         res.json({
             trainNumber: myTrain?.trainNumber,
             name: myTrain?.name,
-            currentSpeed: myTrain?.currentSpeed || 0,
+            totalDelay: myTrain?.totalDelay || 0, 
             currentKM: myTrain?.currentKM || 0,
-            currentStationName: myTrain.currentStationName || myTrain.currentStationCode,
-            nextStationName: myTrain.nextStationName || myTrain.currentStationCode,
-            distToNext: parseFloat(distToNext.toFixed(1)) || 0,
-            mergedStatus: finalReason?.message || "Syncing data...",
-            expectedPlatform: myTrain?.expectedPlatform || "1",
+            currentStationName: isArrivedState ? myTrain.currentStationName : myTrain.currentStationName, 
+            nextStationName: isArrivedState ? (nextInMap?.stationName || "Terminus") : myTrain.nextStationName,
+            distToNext: parseFloat(distToNext.toFixed(1)) || 0, 
+            mergedStatus: finalReason?.message || "Syncing dynamic telemetry...",
+            expectedPlatform: nextInMap?.platform || "1",
             finalReason: finalReason
         });
 
@@ -139,7 +144,7 @@ exports.getTrainStatus = async (req, res) => {
 
 exports.getAllTrains = async (req, res) => {
     try {
-        const allTrains = await Train.find().populate('route currentStationCode')
+        const allTrains = await Train.find().populate('currentStationCode')
         res.json(allTrains)
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -147,55 +152,76 @@ exports.getAllTrains = async (req, res) => {
 }
 
 
-
 exports.syncWithApi = async (req, res) => {
     try {
         let { trainNumber } = req.params;
         trainNumber = trainNumber.toString().trim();
-        const { departure_date } = req.query;
+        const { startDay } = req.query;
+        const targetDay = startDay || "0";
         let apiData = null;
-        const apiDate = departure_date || new Date().toISOString().split('T')[0].replace(/-/g, '');
 
         try {
-            const uniqueID = uuidv4();
             const response = await axios({
                 method: 'GET',
-                url: `https://indian-railway-irctc.p.rapidapi.com/api/trains/v1/train/status`,
+                url: `https://irctc-api2.p.rapidapi.com/liveTrain`,
                 params: {
-                    train_number: trainNumber,
-                    departure_date: apiDate,
-                    isH5: "true",
-                    client: "web",
-                    deviceIdentifier: "Mozilla/5.0-Khabri-App-" + uniqueID,
+                    trainNumber: trainNumber,
+                    startDay: targetDay
                 },
                 headers: {
-                    'x-rapidapi-key': process.env.RAPID_API_KEY,
-                    'x-rapidapi-host': 'indian-railway-irctc.p.rapidapi.com',
-                    'x-rapid-api': 'rapid-api-database',
+                    'X-RapidAPI-Key': process.env.RAPID_API_KEY,
+                    'X-RapidAPI-Host': 'irctc-api2.p.rapidapi.com',
                     'Content-Type': 'application/json'
                 },
                 timeout: 8000
             });
+
             apiData = response.data?.data || response.data;
         } catch (apiErr) {
             apiData = {
                 train_number: trainNumber,
-                current_station: "NBQ",
-                current_speed: 60,
-                train_status_message: "API Offline, using mock location",
-                stations: [
-                    { stationCode: "NBQ", distance: "0", expected_platform: "3", name: "New Bongaigaon junction" },
-                    { stationCode: "GHY", distance: "40", expected_platform: "2", name: "Guwahati junction" }
+                train_name: `Express (${trainNumber})`,
+                delay: 0,
+                next_stoppage: "DESTINATION",
+                current_station_name: "TRACK_OUTER",
+                distance_from_source: 100,
+                current_location_info: [
+                    { type: 1, message: "Crossed Baseline Anchor Station" },
+                    { type: 2, message: "10 kms to DESTINATION" }
                 ]
             };
         }
 
-        const schedule = await Schedule.findOne({ trainNumber });
+        let schedule = await Schedule.findOne({ trainNumber });
+        let train = await Train.findOne({ trainNumber });
+
         if (!schedule) {
-            return res.status(404).json({ message: "Train number not found in Schedules." });
+            console.log("New train requested. Making default template...")
+
+            if (!train) {
+                 const extractedTrainName = apiData?.train_name || `Express (${trainNumber})`;
+                
+                train = new Train({
+                    trainNumber,
+                    name: extractedTrainName,
+                    priority: 3,
+                    currentKM: 0,
+                    liveStatusMessage: "Initializing Khabri Tracking Framework..."
+                });
+            }
+
+            train = parseLiveApiData(train, apiData);
+            train.history.push({
+                message: `Live Sync (Fallback): Confirmed at ${train.currentStationCode} (Delay: ${train.totalDelay} min)`,
+                timestamp: new Date()
+            });
+            if (train.history.length > 5) train.history.shift();
+            await train.save();
+            return res.json({ message: "Sync Sucessfull (using fallback template).", train });
+
         }
 
-        let train = await Train.findOne({ trainNumber });
+
 
         if (!train) {
             const priorityMap = { "rajdhani": 1, "shatabdi": 1, "duronto": 1, "vande bharat": 1, "superfast": 2, "express": 3, "passenger": 4 };
@@ -207,36 +233,9 @@ exports.syncWithApi = async (req, res) => {
                 history: []
             });
         }
-
-        const dataBody = apiData.body || apiData;
-        train.liveStatusMessage = dataBody.train_status_message?.replace(/<[^>]*>/g, '') || "In Transit";
-
-        const stationsArray = dataBody.stations || dataBody.station_list || dataBody.route || [];
-        const currentStnCode = dataBody.current_station || dataBody.current_station_code || dataBody.station_code || "Unknown";
-        const currentStnData = stationsArray.find(s => s.stationCode === currentStnCode);
-        const currentIdx = stationsArray.findIndex(s => s.stationCode === currentStnCode);
-        const liveNextStn = stationsArray[currentIdx + 1];
-
-        train.currentStationName = currentStnData?.stationName || currentStnData?.name || currentStnCode;
-        train.currentStationCode = currentStnCode;
-
-        if (liveNextStn) {
-            train.nextStationName = liveNextStn.stationName || liveNextStn.name || liveNextStn.stationCode;
-            train.nextStationDistance = Number(liveNextStn.distance || 0);
-        } else {
-            train.nextStationName = "Final Destination";
-            train.nextStationDistance = 0;
-        }
-
-        train.currentKM = Number(currentStnData?.distance || dataBody.distance_from_source || train.currentKM || 0);
-        train.currentStationCode = currentStnCode;
-        train.currentSpeed = dataBody.current_speed || 0;
-        train.expectedPlatform = currentStnData?.expected_platform || "N/A";
-        train.lastUpdatedAt = new Date();
-
-        const liveMsg = `Confirmed at ${currentStnCode}`;
+        train = parseLiveApiData(train, apiData);
         train.history.push({
-            message: `Live Sync: ${liveMsg} (Speed: ${train.currentSpeed} km/h)`,
+            message: `Live Sync: Confirmed at ${train.currentStationName} ((Delay: ${train.totalDelay} min)`,
             timestamp: new Date()
         });
 
@@ -249,3 +248,53 @@ exports.syncWithApi = async (req, res) => {
         res.status(500).json({ error: "Internal Server Error", detail: err.message });
     }
 };
+
+
+
+function parseLiveApiData(train, apiData) { 
+
+    const innerData = apiData?.data || apiData;
+    const locationList = innerData?.current_location_info || [];
+
+    train.name = innerData?.train_name || train.name;
+    train.totalDelay = typeof innerData?.delay === 'number' ? innerData.delay : 0;
+
+    const disItem = locationList.find(l => l.message?.toLowerCase().includes("kms to"));
+    let extractedDistance = 0;
+    if (disItem) {
+        const match = disItem.message.match(/^(\d+)/);
+        if (match) extractedDistance = Number(match[1]);
+    }
+    train.nextStationDistance = extractedDistance;
+
+    const statusHeaderItem = locationList.find(l => l.type === 1) || locationList[0];
+    const liveStatusText = statusHeaderItem?.message || "In Transit";
+    train.liveStatusMessage = liveStatusText;
+
+    const nextStoppageRaw = innerData?.next_stoppage_info?.next_stoppage || innerData?.next_stoppage || "Next Station";
+    const cleanNextStopName = nextStoppageRaw.replace('~', '').trim();
+    const hasArrived = liveStatusText.toLowerCase().includes("arrived") || extractedDistance === 0;
+
+    if (hasArrived) {
+        train.currentStationName = cleanNextStopName; 
+        train.currentStationCode = cleanNextStopName;
+       train.nextStationName = cleanNextStopName;
+       train.liveStatusMessage = `Arrived at ${cleanNextStopName}. Departing Shortly...`;
+    } else {
+        const crossedItem = locationList.find(l => l.message?.toLowerCase().includes("crossed"));
+        if (crossedItem) {
+            train.currentStationName = crossedItem.message;
+            train.currentStationCode = innerData?.current_station_name?.replace('~', '').trim() || "TRACK";
+        } else {
+            train.currentStationName = innerData?.current_station_name?.replace('~', '').trim() || "In Transit";
+            train.currentStationCode = train.currentStationName;
+        }
+        train.nextStationName = cleanNextStopName;
+    }
+
+    train.currentKM = Number(innerData?.distance_from_source || 0);
+    train.lastUpdatedAt = new Date();
+    return train;
+
+
+}

@@ -16,7 +16,8 @@ const PORT= process.env.PORT || 5000;
     res.send("Backend System Running.")
  })
 
-app.use('/api', trainRouter)
+app.use('/api/train', trainRouter)
+
 
  mongoose.connect(process.env.MONGO_URI).then((conn)=>{
     console.log("Connected to Database")
