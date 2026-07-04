@@ -16,13 +16,19 @@ const HistoryPage = () => {
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        const res = await axios.get(`${API_BASE}/api/history`);
-        setHistory(res.data);
+        const res = await axios.get(`${API_BASE}/api/train/all`);
+        if (res.data) {
+          const sortedTrains = res.data.sort((a, b) => {
+            return new Date(b.lastUpdatedAt) - new Date(a.lastUpdatedAt);
+          });
+          setHistory(sortedTrains);
+        }
       } catch (err) {
         console.error("History Error: ", err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
-    }
+    };
     fetchHistory();
   }, []);
 
@@ -53,7 +59,11 @@ const HistoryPage = () => {
                     <span className="text-xs font-black text-yellow-400/50">{item.trainNumber}</span>
                     <span className="w-1 h-1 bg-gray-700 rounded-full"></span>
                     <span className="text-[10px] text-gray-500 font-bold uppercase">
-                      {new Date(item.updatedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                      {item.lastUpdatedAt ? (
+                        new Date(item.lastUpdatedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+                      ) : (
+                        "Syncing"
+                      )}
                     </span>
                   </div>
                   <h3 className="text-lg font-bold text-gray-200">{item.name}</h3>
