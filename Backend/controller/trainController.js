@@ -12,8 +12,8 @@ exports.getTrainStatus = async (req, res) => {
 
         let myTrain = await Train.findOne({ trainNumber });
         if (!myTrain) return res.status(404).json({ message: "Train tracking record not initialized yet. Run sync first." });
-        
-       if (!mySchedule) {
+
+        if (!mySchedule) {
             mySchedule = {
                 trainNumber,
                 trainName: myTrain.name !== "Initializing..." ? myTrain.name : `Train ${trainNumber}`,
@@ -28,7 +28,14 @@ exports.getTrainStatus = async (req, res) => {
         const priorityMap = { "rajdhani": 1, "shatabdi": 1, "duronto": 1, "superfast": 2, "express": 3, "passenger": 4 };
         const myPriority = priorityMap[mySchedule.trainType?.toLowerCase()] || 3;
 
-        const currentStnIndex = mySchedule.stations.findIndex(s => s.stationCode === myTrain.currentStationCode);
+        const currentStnIndex = mySchedule.stations.findIndex(s => {
+            const dbCode = s.stationCode.toUpperCase().trim();
+            const dbName = s.stationName.toUpperCase().trim();
+            const liveCode = myTrain.currentStationCode.toUpperCase().trim();
+            const liveName = myTrain.currentStationName.toUpperCase().trim();
+
+            return dbCode === liveCode || liveName.includes(dbCode) || liveName.includes(dbName) || dbName.includes(liveName)
+        });
 
         let nextInMap;
         if (currentStnIndex !== -1 && currentStnIndex < mySchedule.stations.length - 1) {
@@ -37,24 +44,24 @@ exports.getTrainStatus = async (req, res) => {
             nextInMap = mySchedule.stations.find(s => Number(s.distance) > Number(myTrain.currentKM)) || mySchedule.stations[mySchedule.stations.length - 1];
         }
 
-        let distToNext =  Number(myTrain.nextStationDistance || 0);
+        let distToNext = Number(myTrain.nextStationDistance || 0);
 
         let finalReason = {
             code: "ON_TIME",
             severity: "normal",
             message: myTrain.liveStatusMessage || "Running on Schedule"
         };
-        
+
         const isArrivedState = distToNext === 0;
 
-       if (myTrain.totalDelay > 0 && !isArrivedState) {
+        if (myTrain.totalDelay > 0 && !isArrivedState) {
             finalReason.message = `Delayed by ${myTrain.totalDelay} minutes. ${myTrain.liveStatusMessage}`;
             finalReason.severity = "medium";
         } else if (isArrivedState) {
-            finalReason = { 
-                code: "ARRIVED", 
-                severity: "success", 
-                message: myTrain.liveStatusMessage || `Arrived at ${myTrain.nextStationName}.` 
+            finalReason = {
+                code: "ARRIVED",
+                severity: "success",
+                message: myTrain.liveStatusMessage || `Arrived at ${myTrain.nextStationName}.`
             };
         }
 
@@ -66,15 +73,15 @@ exports.getTrainStatus = async (req, res) => {
                 });
                 sectionTrains = trafficRes.data.data || [];
             } catch (e) { console.log("Traffic API failed, using fallback."); }
-        } 
-        else{
-            sectionTrains=[];
+        }
+        else {
+            sectionTrains = [];
         }
 
-const targetPlatform = nextInMap?.platform || "1";
+        const targetPlatform = nextInMap?.platform || "1";
         if (distToNext === 0) {
-           finalReason = { code: "ARRIVED", severity: "success", message: `Arrived at ${myTrain.nextStationName}.` };
-        } else {                                         
+            finalReason = { code: "ARRIVED", severity: "success", message: `Arrived at ${myTrain.nextStationName}.` };
+        } else {
             const stalker = sectionTrains.find(t => (priorityMap[t.train_type?.toLowerCase()] || 3) < myPriority);
 
             const isTrainStalled = myTrain.totalDelay > 0 || myTrain.liveStatusMessage.toLowerCase().includes("stopped")
@@ -125,11 +132,11 @@ const targetPlatform = nextInMap?.platform || "1";
         res.json({
             trainNumber: myTrain?.trainNumber,
             name: myTrain?.name,
-            totalDelay: myTrain?.totalDelay || 0, 
+            totalDelay: myTrain?.totalDelay || 0,
             currentKM: myTrain?.currentKM || 0,
-            currentStationName: isArrivedState ? myTrain.currentStationName : myTrain.currentStationName, 
+            currentStationName: isArrivedState ? myTrain.currentStationName : myTrain.currentStationName,
             nextStationName: isArrivedState ? (nextInMap?.stationName || "Terminus") : myTrain.nextStationName,
-            distToNext: parseFloat(distToNext.toFixed(1)) || 0, 
+            distToNext: parseFloat(distToNext.toFixed(1)) || 0,
             mergedStatus: finalReason?.message || "Syncing dynamic telemetry...",
             expectedPlatform: nextInMap?.platform || "1",
             finalReason: finalReason
@@ -175,8 +182,8 @@ exports.syncWithApi = async (req, res) => {
                 },
                 timeout: 8000
             });
-
             apiData = response.data?.data || response.data;
+
         } catch (apiErr) {
             apiData = {
                 train_number: trainNumber,
@@ -193,65 +200,88 @@ exports.syncWithApi = async (req, res) => {
         }
 
         let schedule = await Schedule.findOne({ trainNumber });
-        let train = await Train.findOne({ trainNumber });
 
         if (!schedule) {
-            console.log("New train requested. Making default template...")
 
-            if (!train) {
-                 const extractedTrainName = apiData?.train_name || `Express (${trainNumber})`;
-                
-                train = new Train({
-                    trainNumber,
-                    name: extractedTrainName,
-                    priority: 3,
-                    currentKM: 0,
-                    liveStatusMessage: "Initializing Khabri Tracking Framework..."
-                });
+            //adding second api for schedule fetching
+            try {
+                const scheduleRes = await axios({
+                    method: 'GET',
+                    url: `https://indian-railway-irctc.p.rapidapi.com/api/trains-search/v1/train/${trainNumber}`,
+                    params: {
+                        isH5: 'true',
+                        client: 'web'
+                    },
+                    headers: {
+                        'x-rapidapi-key': process.env.RAPID_API_KEY,
+                        'x-rapidapi-host': 'indian-railway-irctc.p.rapidapi.com',
+                        'x-rapid-api': 'rapid-api-database',
+                        'Content-Type': 'application/json',
+                    },
+                    timeout: 8000
+                })
+
+                const apiResponseData = scheduleRes.data?.body?.[0] || scheduleRes.data?.[0] || scheduleRes.data;
+                const targetTrainObject = apiResponseData?.trains?.[0];
+                const rawRouteList = targetTrainObject?.schedule || [];
+
+
+                if (rawRouteList.length > 0) {
+                    const parsedStations = rawRouteList.map((stn, index) => ({
+                        stationCode: (stn.stationCode || `STN_${index}`).toString().trim().toUpperCase(),
+                        stationName: stn.stationName || "Unknown Halt",
+                        distance: Number(stn.distance || 0),
+                        platform: stn.platform_number || "1"
+                    }));
+                    schedule = new Schedule({
+                        trainNumber,
+                        trainName: targetTrainObject?.trainName || apiData?.train_name || `Express (${trainNumber})`,
+                        trainType: "express",
+                        stations: parsedStations
+                    });
+
+                    await schedule.save();
+        }
+            } catch (scheduleApiErr) {
+                console.error("Schedule API Critical Error:", scheduleApiErr.response?.data || scheduleApiErr.message);
             }
-
-            train = parseLiveApiData(train, apiData);
-            train.history.push({
-                message: `Live Sync (Fallback): Confirmed at ${train.currentStationCode} (Delay: ${train.totalDelay} min)`,
-                timestamp: new Date()
-            });
-            if (train.history.length > 5) train.history.shift();
-            await train.save();
-            return res.json({ message: "Sync Sucessfull (using fallback template).", train });
-
         }
 
-
+        let train = await Train.findOne({ trainNumber });
 
         if (!train) {
             const priorityMap = { "rajdhani": 1, "shatabdi": 1, "duronto": 1, "vande bharat": 1, "superfast": 2, "express": 3, "passenger": 4 };
-            const trainPriority = priorityMap[schedule.trainType?.toLowerCase()] || 3;
+            const trainPriority = schedule ? (priorityMap[schedule.trainType?.toLowerCase()] || 3) : 3;
+            const targetName = schedule ? schedule.trainName : (apiData?.train_name || `Express (${trainNumber})`);
+
             train = new Train({
                 trainNumber,
-                name: schedule.trainName,
+                name: targetName,
                 priority: trainPriority,
+                currentKM: 0,
+                liveStatusMessage: "Initializing Khabri Tracking Framework...",
                 history: []
             });
         }
+
         train = parseLiveApiData(train, apiData);
-        train.history.push({
-            message: `Live Sync: Confirmed at ${train.currentStationName} ((Delay: ${train.totalDelay} min)`,
-            timestamp: new Date()
-        });
+
+        const logMsg = schedule
+            ? `Live Sync: Confirmed at ${train.currentStationName} (Delay: ${train.totalDelay} min)`
+            : `Live Sync (Fallback): Confirmed at ${train.currentStationCode} (Delay: ${train.totalDelay} min)`;
+
+        train.history.push({ message: logMsg, timestamp: new Date() });
 
         if (train.history.length > 5) train.history.shift();
-
         await train.save();
-        return res.json({ message: "Sync Successful", train });
-
+        return res.json({ message: "Sync Sucessfull (using fallback template).", train });
     } catch (err) {
         res.status(500).json({ error: "Internal Server Error", detail: err.message });
     }
 };
 
 
-
-function parseLiveApiData(train, apiData) { 
+function parseLiveApiData(train, apiData) {
 
     const innerData = apiData?.data || apiData;
     const locationList = innerData?.current_location_info || [];
@@ -265,6 +295,9 @@ function parseLiveApiData(train, apiData) {
         const match = disItem.message.match(/^(\d+)/);
         if (match) extractedDistance = Number(match[1]);
     }
+    else{
+        extractedDistance = Number(innerData?.next_stoppage_distance || innerData?.distance_to_next_station || 0);
+    }
     train.nextStationDistance = extractedDistance;
 
     const statusHeaderItem = locationList.find(l => l.type === 1) || locationList[0];
@@ -273,13 +306,21 @@ function parseLiveApiData(train, apiData) {
 
     const nextStoppageRaw = innerData?.next_stoppage_info?.next_stoppage || innerData?.next_stoppage || "Next Station";
     const cleanNextStopName = nextStoppageRaw.replace('~', '').trim();
+
+        const platformMatch = liveStatusText.match(/(?:platform|pf\s*no\.?)\s*(\d+)/i);
+if (platformMatch) {
+    train.expectedPlatform = platformMatch[1].toString(); // Overrides with real-world track change number!
+} else {
+    train.expectedPlatform = innerData?.platform_number || "1";
+}
+
     const hasArrived = liveStatusText.toLowerCase().includes("arrived") || extractedDistance === 0;
 
     if (hasArrived) {
-        train.currentStationName = cleanNextStopName; 
+        train.currentStationName = cleanNextStopName;
         train.currentStationCode = cleanNextStopName;
-       train.nextStationName = cleanNextStopName;
-       train.liveStatusMessage = `Arrived at ${cleanNextStopName}. Departing Shortly...`;
+        train.nextStationName = cleanNextStopName;
+        train.liveStatusMessage = `Arrived at ${cleanNextStopName}. Departing Shortly...`;
     } else {
         const crossedItem = locationList.find(l => l.message?.toLowerCase().includes("crossed"));
         if (crossedItem) {
@@ -295,6 +336,5 @@ function parseLiveApiData(train, apiData) {
     train.currentKM = Number(innerData?.distance_from_source || 0);
     train.lastUpdatedAt = new Date();
     return train;
-
 
 }
